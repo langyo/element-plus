@@ -6,7 +6,7 @@
     role="option"
     :aria-disabled="isDisabled || undefined"
     :aria-selected="itemSelected"
-    @mouseenter="hoverItem"
+    @mousemove="hoverItem"
     @click.stop="selectOptionClick"
   >
     <slot>
@@ -61,47 +61,49 @@ export default defineComponent({
     const containerKls = computed(() => [
       ns.be('dropdown', 'item'),
       ns.is('disabled', unref(isDisabled)),
-      {
-        selected: unref(itemSelected),
-        hover: unref(hover),
-      },
+      ns.is('selected', unref(itemSelected)),
+      ns.is('hovering', unref(hover)),
     ])
 
     const states = reactive({
       index: -1,
       groupDisabled: false,
       visible: true,
-      hitState: false,
       hover: false,
     })
 
-    const { currentLabel, itemSelected, isDisabled, select, hoverItem } =
-      useOption(props, states)
+    const {
+      currentLabel,
+      itemSelected,
+      isDisabled,
+      select,
+      hoverItem,
+      updateOption,
+    } = useOption(props, states)
 
     const { visible, hover } = toRefs(states)
 
-    const vm = getCurrentInstance().proxy
+    const vm = getCurrentInstance().proxy as unknown as SelectOptionProxy
 
-    select.onOptionCreate(vm as unknown as SelectOptionProxy)
+    select.onOptionCreate(vm)
 
     onBeforeUnmount(() => {
-      const key = (vm as unknown as SelectOptionProxy).value
-      const { selected } = select
-      const selectedOptions = select.props.multiple ? selected : [selected]
+      const key = vm.value
+      const { selected: selectedOptions } = select.states
       const doesSelected = selectedOptions.some((item) => {
-        return item.value === (vm as unknown as SelectOptionProxy).value
+        return item.value === vm.value
       })
       // if option is not selected, remove it from cache
       nextTick(() => {
-        if (select.cachedOptions.get(key) === vm && !doesSelected) {
-          select.cachedOptions.delete(key)
+        if (select.states.cachedOptions.get(key) === vm && !doesSelected) {
+          select.states.cachedOptions.delete(key)
         }
       })
       select.onOptionDestroy(key, vm)
     })
 
     function selectOptionClick() {
-      if (props.disabled !== true && states.groupDisabled !== true) {
+      if (!isDisabled.value) {
         select.handleOptionSelect(vm)
       }
     }
@@ -115,6 +117,7 @@ export default defineComponent({
       isDisabled,
       select,
       hoverItem,
+      updateOption,
       visible,
       hover,
       selectOptionClick,

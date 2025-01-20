@@ -48,6 +48,10 @@ const formClasses = computed(() => {
   ]
 })
 
+const getField: FormContext['getField'] = (prop) => {
+  return fields.find((field) => field.prop === prop)
+}
+
 const addField: FormContext['addField'] = (field) => {
   fields.push(field)
 }
@@ -105,6 +109,7 @@ const doValidateField = async (
   for (const field of fields) {
     try {
       await field.validate('')
+      if (field.validateState === 'error') field.resetField()
     } catch (fields) {
       validationErrors = {
         ...validationErrors,
@@ -126,7 +131,7 @@ const validateField: FormContext['validateField'] = async (
     const result = await doValidateField(modelProps)
     // When result is false meaning that the fields are not validatable
     if (result === true) {
-      callback?.(result)
+      await callback?.(result)
     }
     return result
   } catch (e) {
@@ -137,7 +142,7 @@ const validateField: FormContext['validateField'] = async (
     if (props.scrollToError) {
       scrollToField(Object.keys(invalidFields)[0])
     }
-    callback?.(false, invalidFields)
+    await callback?.(false, invalidFields)
     return shouldThrow && Promise.reject(invalidFields)
   }
 }
@@ -156,7 +161,7 @@ watch(
       validate().catch((err) => debugWarn(err))
     }
   },
-  { deep: true }
+  { deep: true, flush: 'post' }
 )
 
 provide(
@@ -168,6 +173,7 @@ provide(
     resetFields,
     clearValidate,
     validateField,
+    getField,
     addField,
     removeField,
 
@@ -196,5 +202,9 @@ defineExpose({
    * @description Scroll to the specified fields.
    */
   scrollToField,
+  /**
+   * @description All fields context.
+   */
+  fields,
 })
 </script>
